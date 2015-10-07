@@ -8,19 +8,21 @@ var https = require('https');
  * Will succeed with the response body.
  */
 exports.handler = function(event, context) {
-	smReqFunction = function(smRes) {
-		console.log('Status:', smRes.statusCode);
-		console.log('Headers:', JSON.stringify(smRes.headers));
-		smRes.setEncoding('utf8');
-		smRes.on('data', function(chunk) {
-			body += chunk;
-		});
-		smRes.on('end', function() {
-			console.log('Successfully processed HTTPS smResponse');
-		});
+	var requestCount = 0;
+	var responseCount = 0;
+
+	var smReqFunction = function(smRes) {
+	  console.log("statusCode: ", smRes.statusCode);
+	  console.log("headers: ", JSON.stringify(smRes.headers));
+	  
+	  responseCount++;
+	  
+	  if (requestCount == responseCount) {
+		context.succeed(true);	  
+	  }
 	};
 
-	var req = https.request({  hostname: 'www.sitemason.com', port: 443, path: '/site/i34wXC/unit-tests?tooljson', method: 'GET'}, function(res) {
+	var req = https.request({  hostname: 'www.sitemason.com', port: 443, path: '/site/i34wXC/systems-monitoring?tooljson', method: 'GET'}, function(res) {
 		var body = '';
 		console.log('Status:', res.statusCode);
 		console.log('Headers:', JSON.stringify(res.headers));
@@ -36,7 +38,8 @@ exports.handler = function(event, context) {
 		
 			//console.log('Body:',bodyParsed);
 
-			for (i=0; i < bodyParsed.element.item.length; i++) {
+			requestCount = bodyParsed.element.item.length;
+			for (var i=0; i < bodyParsed.element.item.length; i++) {
 				var item = bodyParsed.element.item[i];
 				//console.log('Item:',item);
 
@@ -58,12 +61,24 @@ exports.handler = function(event, context) {
 				}
 
 				console.log('Item Output:',id + ' ' + name + ' ' + hostname + ' ' + path + ' ' + frequency + ' ' + groupTag + ' ' + realmTag);
+				
+				var options = {
+				  hostname: hostname,
+				  port: 443,
+				  path: path,
+				  method: 'GET'
+				};
 
 				var smReq = https.request({  hostname: hostname, port: 443, path: path, method: 'GET'}, smReqFunction);
+				smReq.end();
+
+				smReq.on('error', function(e) {
+				  console.error(e);
+				});
 
 			}
 
-            context.succeed(body);
+//             context.succeed(body);
             
         });
     });
