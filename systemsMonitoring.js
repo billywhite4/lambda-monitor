@@ -22,7 +22,7 @@ exports.handler = function(event, context) { // start Lambda handler
 
 			monitorResponseJSONParsed = JSON.parse(monitorResponseJSON); // convert response data to parsed JSON object
 
- 			var differences = diff(storedJSONValueParsed, monitorResponseJSONParsed); // compares stored vs response json blocks
+ 			var differences = diff(storedJSONValueParsed, monitorResponseJSONParsed); // compares stored vs response JSON blocks
  			console.log('differences:',differences); // prints results to the console
 
 			responseCount++; // iterates the # of responses on-end
