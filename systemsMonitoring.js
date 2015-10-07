@@ -4,6 +4,8 @@ var diff = require('deep-diff');
 exports.handler = function(event, context) {
 	var requestCount = 0;
 	var responseCount = 0;
+	var smResBodyParsed;
+	var valueParsed;
 
 	var smReqFunction = function(smRes) {
 		var smResBody = '';
@@ -16,7 +18,6 @@ exports.handler = function(event, context) {
 
 		smRes.on('end', function() {
 //			console.log('Successfully processed HTTPS SMResponse');
-			var smResBodyParsed;
 			smResBodyParsed = JSON.parse(smResBody);
 
 // 			var smTestResult;
@@ -25,6 +26,14 @@ exports.handler = function(event, context) {
 //  			console.log('smResBodyParsed:',smResBodyParsed);
 
 // 			console.log('smTestResult:',smTestResult);
+
+
+// 			console.log('valueParsed:',valueParsed);
+// 			console.log('smResBodyParsed:',smResBodyParsed);
+ 			var differences = diff(valueParsed, smResBodyParsed);
+ 			console.log('differences:',differences);
+
+
 
 			responseCount++;
 
@@ -35,7 +44,7 @@ exports.handler = function(event, context) {
 		});			
 	};
 
-	var req = https.request({  hostname: 'www.sitemason.com', port: 443, path: '/site/i34wXC/systems-monitoring?tooljson', method: 'GET'}, function(res,smResBodyParsed) {
+	var req = https.request({  hostname: 'www.sitemason.com', port: 443, path: '/site/i34wXC/systems-monitoring?tooljson', method: 'GET'}, function(res) {
 		var body = '';
 // 		console.log('Status:', res.statusCode);
 // 		console.log('Headers:', JSON.stringify(res.headers));
@@ -73,7 +82,6 @@ exports.handler = function(event, context) {
 					}
 				}
 
-				var valueParsed;
 				valueParsed = JSON.parse(value);
 
 // 				console.log('valueParsed:',valueParsed);
@@ -89,9 +97,6 @@ exports.handler = function(event, context) {
 
 				var smReq = https.request({  hostname: hostname, port: 443, path: path, method: 'GET'}, smReqFunction);
 				smReq.end();
-
-				var differences = diff(valueParsed, smResBodyParsed);
-				console.log('differences:',differences);
 
 				smReq.on('error', function(e) {
 				  console.error(e);
