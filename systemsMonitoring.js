@@ -1,80 +1,77 @@
-var https = require('https');
-var diff = require('deep-diff');
+var https = require('https'); // require node's https package: https://nodejs.org/api/https.html
+var diff = require('deep-diff'); // require deep-diff: https://www.npmjs.com/package/deep-diff
 
-exports.handler = function(event, context) {
-	var requestCount = 0;
-	var responseCount = 0;
-	var smResBodyParsed;
-	var valueParsed;
+exports.handler = function(event, context) { // start Lambda handler
 
-	var smReqFunction = function(smRes) {
-		var smResBody = '';
-// 		console.log("statusCode: ", smRes.statusCode);
-// 		console.log("headers: ", JSON.stringify(smRes.headers));
+	var requestCount = 0; // defines total # of requests made
+	var responseCount = 0; // defines total # of of responses back
+	var storedJSONValueParsed; // will be stored value; left-hand-side origin when comparing differences
+	var monitorResponseJSONParsed; // will be live monitor value; right-hand-side comparand when comparing differences
 
-		smRes.on('data', function(smResChunk) {
-			smResBody += smResChunk;
+	var monitorRequestFunction = function(monitorResponse) { // function to be passed to monitorRequest
+
+		var monitorResponseJSON = ''; // will hold the response body from monitorRequest
+
+		monitorResponse.setEncoding('utf8'); // set character encoding to utf-8
+
+		monitorResponse.on('data', function(monitorResponseChunk) { // as data arrives, do stuff
+			monitorResponseJSON += monitorResponseChunk; // concatenate response chunks from monitorRequest to build data object
 		});
 
-		smRes.on('end', function() {
-//			console.log('Successfully processed HTTPS SMResponse');
-			smResBodyParsed = JSON.parse(smResBody);
+		monitorResponse.on('end', function() { // when response is complete, do stuff
 
-// 			var smTestResult;
-// 			smTestResult = JSON.stringify(smResBodyParsed);
+			monitorResponseJSONParsed = JSON.parse(monitorResponseJSON); // convert response data to parsed JSON object
 
-//  			console.log('smResBodyParsed:',smResBodyParsed);
+ 			var differences = diff(storedJSONValueParsed, monitorResponseJSONParsed); // compares stored vs response json blocks
+ 			console.log('differences:',differences); // prints results to the console
 
-// 			console.log('smTestResult:',smTestResult);
+			responseCount++; // iterates the # of responses on-end
 
-
-// 			console.log('valueParsed:',valueParsed);
-// 			console.log('smResBodyParsed:',smResBodyParsed);
- 			var differences = diff(valueParsed, smResBodyParsed);
- 			console.log('differences:',differences);
-
-
-
-			responseCount++;
-
-			if (requestCount == responseCount) {
+			if (requestCount == responseCount) { // if requests equals responses, exit Lambda function
 				context.succeed(true);	  
 			}
 
 		});			
 	};
 
-	var req = https.request({  hostname: 'www.sitemason.com', port: 443, path: '/site/i34wXC/systems-monitoring?tooljson', method: 'GET'}, function(res) {
-		var body = '';
-// 		console.log('Status:', res.statusCode);
-// 		console.log('Headers:', JSON.stringify(res.headers));
-		res.setEncoding('utf8');
-		res.on('data', function(chunk) {
-			body += chunk;
+	var storedRequestOptions = { // set options to pass to storedRequest; points to Sitemason.com tool (sitemason_site2) /support/apps/systems-monitoring
+		hostname: 'www.sitemason.com',
+		port: 443,
+		path: '/site/i34wXC/systems-monitoring?tooljson',
+		method: 'GET'
+	};
+
+	var storedRequest = https.request(storedRequestOptions, function(storedResponse) { // request to the Sitemason tool
+
+		var storedResponseJSON = ''; // will hold the response body from storedRequest
+
+		storedResponse.setEncoding('utf8'); // set character encoding to utf-8
+
+		storedResponse.on('data', function(storedResponseChunk) { // as data arrives, do stuff
+			storedResponseJSON += storedResponseChunk; // concatenate response chunks from storedRequest to build data object
 		});
-		res.on('end', function() {
-// 			console.log('Successfully processed HTTPS response');
 
-			var bodyParsed;
-			bodyParsed = JSON.parse(body);
-		
-			//console.log('Body:',bodyParsed);
+		storedResponse.on('end', function() { // when response is complete, do stuff
 
-			requestCount = bodyParsed.element.item.length;
-			for (var i=0; i < bodyParsed.element.item.length; i++) {
-				var item = bodyParsed.element.item[i];
-				//console.log('Item:',item);
+			var storedResponseJSONParsed; // define variable for parsed JSON of the stored request
+			storedResponseJSONParsed = JSON.parse(storedResponseJSON); // convert response data to parsed JSON object
 
-				var id 			= item.id;
-				var name 		= item.title;
-				var frequency 	= item.custom_field_1;
-				var tags 		= item.tags_by_group;
-				var value 		= item.custom_field_2;
-				var rules 		= item.custom_field_json;
-				var hostname	= item.custom_field_3;
-				var path 		= item.custom_field_4;
+			requestCount = storedResponseJSONParsed.element.item.length; // determine # of requests for comparison with # of responses
 
-				for (i=0; i < tags.group.length; i++) {
+			for (var i=0; i < storedResponseJSONParsed.element.item.length; i++) { // loop through stored JSON to assign values to new vars
+
+				var item = storedResponseJSONParsed.element.item[i]; // find items in JSON
+
+				var id 			= item.id; // unique ID assigned to the item by Sitemason in Systems Monitoring tool
+				var name 		= item.title; // name given to item in Systems Monitoring tool
+				var frequency 	= item.custom_field_1; // frequency monitor script should be run, set per item in the Systems Monitoring tool
+				var tags 		= item.tags_by_group; // tags set per item in the Systems Monitoring tool for group and realm
+				var value 		= item.custom_field_2; // the expected JSON response value of the monitor script, stored in Systems Monitoring item
+				var rules 		= item.custom_field_json; // rules setting the notification type, limits, priority, and message to detrmine the alert
+				var hostname	= item.custom_field_3; // hostname of the location of the monitor script, set per item in the Systems Monitoring tool
+				var path 		= item.custom_field_4; // path to the location of the monitor script, set per item in the Systems Monitoring tool
+
+				for (i=0; i < tags.group.length; i++) { // loop through the tags to set the Group and Realm per item in the Systems Monitoring tool
 					if (tags.group[i].id == '899') { // Group
 						var groupTag = tags.group[i].tags.tag[0].name;
 					} else if (tags.group[i].id == '898') { // Realm
@@ -82,41 +79,31 @@ exports.handler = function(event, context) {
 					}
 				}
 
-				valueParsed = JSON.parse(value);
+				storedJSONValueParsed = JSON.parse(value); // convert response data to parsed JSON object
 
-// 				console.log('valueParsed:',valueParsed);
-
-// 				console.log('Item Output:',id + ' ' + name + ' ' + hostname + ' ' + path + ' ' + frequency + ' ' + groupTag + ' ' + realmTag);
-				
-				var options = {
+				var monitorRequestOptions = { // set options to pass to monitorRequest from the item stored in the Systems Monitoring tool
 				  hostname: hostname,
 				  port: 443,
 				  path: path,
 				  method: 'GET'
 				};
 
-				var smReq = https.request({  hostname: hostname, port: 443, path: path, method: 'GET'}, smReqFunction);
-				smReq.end();
+				var monitorRequest = https.request(monitorRequestOptions, monitorRequestFunction); // request to the monitoring script
 
-				smReq.on('error', function(e) {
-				  console.error(e);
+				monitorRequest.on('error', function(e) { // error handling for monitorRequest
+					console.error(e);
 				});
 
+				monitorRequest.end(); // end monitorRequest
 			}
 
             
         });
     });
-    req.on('error', context.fail);
-    req.write(JSON.stringify(event.data));
-    req.end();
-    
-// 	function (err) {
-// 	   if (err) {
-// 		  msg = 'error: ' + err;
-// 	   } else {
-// 		  msg = 'Success';
-// 	   }
-// 	context.done(err, msg);
-// 	}    
+
+    storedRequest.on('error', function(e) {  // error handling for storedRequest
+		console.error(e);
+	});
+
+    storedRequest.end(); // end storedRequest
 };
