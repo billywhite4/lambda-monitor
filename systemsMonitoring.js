@@ -1,12 +1,6 @@
 var https = require('https');
+var diff = require('deep-diff');
 
-/**
- * Pass the data to send as `event.data`, and the request options as
- * `event.options`. For more information see the HTTPS module documentation
- * at https://nodejs.org/api/https.html.
- *
- * Will succeed with the response body.
- */
 exports.handler = function(event, context) {
 	var requestCount = 0;
 	var responseCount = 0;
@@ -25,9 +19,12 @@ exports.handler = function(event, context) {
 			var smResBodyParsed;
 			smResBodyParsed = JSON.parse(smResBody);
 
-			var smTestResult;
-			smTestResult = JSON.stringify(smResBodyParsed);
-			console.log('smTestResult:',smTestResult);
+// 			var smTestResult;
+// 			smTestResult = JSON.stringify(smResBodyParsed);
+
+//  			console.log('smResBodyParsed:',smResBodyParsed);
+
+// 			console.log('smTestResult:',smTestResult);
 
 			responseCount++;
 
@@ -38,7 +35,7 @@ exports.handler = function(event, context) {
 		});			
 	};
 
-	var req = https.request({  hostname: 'www.sitemason.com', port: 443, path: '/site/i34wXC/systems-monitoring?tooljson', method: 'GET'}, function(res) {
+	var req = https.request({  hostname: 'www.sitemason.com', port: 443, path: '/site/i34wXC/systems-monitoring?tooljson', method: 'GET'}, function(res,smResBodyParsed) {
 		var body = '';
 // 		console.log('Status:', res.statusCode);
 // 		console.log('Headers:', JSON.stringify(res.headers));
@@ -76,7 +73,10 @@ exports.handler = function(event, context) {
 					}
 				}
 
-				console.log('testValue:',value);
+				var valueParsed;
+				valueParsed = JSON.parse(value);
+
+// 				console.log('valueParsed:',valueParsed);
 
 // 				console.log('Item Output:',id + ' ' + name + ' ' + hostname + ' ' + path + ' ' + frequency + ' ' + groupTag + ' ' + realmTag);
 				
@@ -89,6 +89,9 @@ exports.handler = function(event, context) {
 
 				var smReq = https.request({  hostname: hostname, port: 443, path: path, method: 'GET'}, smReqFunction);
 				smReq.end();
+
+				var differences = diff(valueParsed, smResBodyParsed);
+				console.log('differences:',differences);
 
 				smReq.on('error', function(e) {
 				  console.error(e);
