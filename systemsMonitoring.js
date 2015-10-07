@@ -12,39 +12,42 @@ exports.handler = function(event, context) {
 	var responseCount = 0;
 
 	var smReqFunction = function(smRes) {
-	  var smResBody = '';
-	  console.log("statusCode: ", smRes.statusCode);
-	  console.log("headers: ", JSON.stringify(smRes.headers));
+		var smResBody = '';
+// 		console.log("statusCode: ", smRes.statusCode);
+// 		console.log("headers: ", JSON.stringify(smRes.headers));
 
 		smRes.on('data', function(smResChunk) {
 			smResBody += smResChunk;
 		});
 
 		smRes.on('end', function() {
-			console.log('Successfully processed HTTPS SMResponse');
+//			console.log('Successfully processed HTTPS SMResponse');
 			var smResBodyParsed;
 			smResBodyParsed = JSON.parse(smResBody);
-		
-			console.log('smResBodyParsed',smResBodyParsed);
-		});
-			
-	  responseCount++;
-	  
-	  if (requestCount == responseCount) {
-		context.succeed(true);	  
-	  }
+
+			var smTestResult;
+			smTestResult = JSON.stringify(smResBodyParsed);
+			console.log('smTestResult:',smTestResult);
+
+			responseCount++;
+
+			if (requestCount == responseCount) {
+				context.succeed(true);	  
+			}
+
+		});			
 	};
 
 	var req = https.request({  hostname: 'www.sitemason.com', port: 443, path: '/site/i34wXC/systems-monitoring?tooljson', method: 'GET'}, function(res) {
 		var body = '';
-		console.log('Status:', res.statusCode);
-		console.log('Headers:', JSON.stringify(res.headers));
+// 		console.log('Status:', res.statusCode);
+// 		console.log('Headers:', JSON.stringify(res.headers));
 		res.setEncoding('utf8');
 		res.on('data', function(chunk) {
 			body += chunk;
 		});
 		res.on('end', function() {
-			console.log('Successfully processed HTTPS response');
+// 			console.log('Successfully processed HTTPS response');
 
 			var bodyParsed;
 			bodyParsed = JSON.parse(body);
@@ -73,7 +76,9 @@ exports.handler = function(event, context) {
 					}
 				}
 
-				console.log('Item Output:',id + ' ' + name + ' ' + hostname + ' ' + path + ' ' + frequency + ' ' + groupTag + ' ' + realmTag);
+				console.log('testValue:',value);
+
+// 				console.log('Item Output:',id + ' ' + name + ' ' + hostname + ' ' + path + ' ' + frequency + ' ' + groupTag + ' ' + realmTag);
 				
 				var options = {
 				  hostname: hostname,
