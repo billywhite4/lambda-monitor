@@ -12,9 +12,22 @@ exports.handler = function(event, context) {
 	var responseCount = 0;
 
 	var smReqFunction = function(smRes) {
+	  var smResBody = '';
 	  console.log("statusCode: ", smRes.statusCode);
 	  console.log("headers: ", JSON.stringify(smRes.headers));
-	  
+
+		smRes.on('data', function(smResChunk) {
+			smResBody += smResChunk;
+		});
+
+		smRes.on('end', function() {
+			console.log('Successfully processed HTTPS SMResponse');
+			var smResBodyParsed;
+			smResBodyParsed = JSON.parse(smResBody);
+		
+			console.log('smResBodyParsed',smResBodyParsed);
+		});
+			
 	  responseCount++;
 	  
 	  if (requestCount == responseCount) {
@@ -78,7 +91,6 @@ exports.handler = function(event, context) {
 
 			}
 
-//             context.succeed(body);
             
         });
     });
