@@ -8,6 +8,7 @@ exports.handler = function(event, context) { // start Lambda handler
 	var rules; // define custom rules per item set in Systems Monitoring tool in Sitemason
 	var storedJSONValueParsed; // will be stored value; left-hand-side origin when comparing differences
 	var monitorResponseJSONParsed; // will be live monitor value; right-hand-side comparand when comparing differences
+	var testResultToLog = {}; // the final message to be stored in logs
 
 	var storedRequestOptions = { // set options to pass to storedRequest; points to Sitemason.com tool /support/apps/systems-monitoring (sitemason_site2)
 		hostname: 'www.sitemason.com',
@@ -37,9 +38,13 @@ exports.handler = function(event, context) { // start Lambda handler
 
 				var item = storedResponseJSONParsed.element.item[i]; // find items in JSON
 
-				var id 			= item.id; // unique ID assigned to the item by Sitemason in Systems Monitoring tool
-				var name 		= item.title; // name given to item in Systems Monitoring tool
-				var frequency 	= item.custom_field_1; // frequency monitor script should be run, set per item in the Systems Monitoring tool
+				var currentDateTime = Date.now();
+				
+				testResultToLog["id"] 			= item.id; // unique ID assigned to the item by Sitemason in Systems Monitoring tool
+				testResultToLog["name"] 		= item.title; // name given to item in Systems Monitoring tool
+				testResultToLog["dateTime"]	= timeConverter(currentDateTime/1000);
+				testResultToLog["frequency"] 	= item.custom_field_1; // frequency monitor script should be run, set per item in the Systems Monitoring tool
+
 				var tags 		= item.tags_by_group; // tags set per item in the Systems Monitoring tool for group and realm
 				var value 		= item.custom_field_2; // the expected JSON response value of the monitor script, stored in Systems Monitoring item
 				var hostname	= item.custom_field_3; // hostname of the location of the monitor script, set per item in the Systems Monitoring tool
@@ -54,6 +59,10 @@ exports.handler = function(event, context) { // start Lambda handler
 					}
 				}
 
+				testResultToLog["group"] = groupTag; // assign group tag to testResultToLog
+				testResultToLog["realm"] = realmTag; // assign realm tag to testResultToLog
+				testResultToLog["url"] = 'https://'+hostname+path; // assign url to testResultToLog
+			
 				storedJSONValueParsed = JSON.parse(value); // convert response data to parsed JSON object
 
 				var monitorRequestOptions = { // set options to pass to monitorRequest from the item stored in the Systems Monitoring tool
@@ -102,7 +111,6 @@ exports.handler = function(event, context) { // start Lambda handler
  			var differences = diff(storedJSONValueParsed, monitorResponseJSONParsed); // JSON object storing differences between stored vs response JSON blocks
 			differences = JSON.stringify(differences);
 			differences = JSON.parse(differences);
-//  			console.log('differences:',differences);
 
 			rulesJSONParsed = JSON.parse(rules); // parse rules defined under storedRequest to JSON object
 
@@ -158,10 +166,10 @@ exports.handler = function(event, context) { // start Lambda handler
 				
 			}
 			
-			console.log('messageToLog:',messageToLog); // print messageToLog to console
-			
-			messageToLogString = JSON.stringify(messageToLog); // stringify messageToLog
-			messageToLogParsed = JSON.parse(messageToLogString); // parse messageToLog
+			testResultToLog["message"] = messageToLog; // add messageToLog to testResultToLog
+			testResultToLogString = JSON.stringify(testResultToLog); // stringify testResultToLog
+
+			console.log(testResultToLog); // print messageToLog to console
 
 			responseCount++; // iterates the # of responses on-end
 
@@ -171,5 +179,18 @@ exports.handler = function(event, context) { // start Lambda handler
 
 		});			
 	};
+
+	function timeConverter(UNIX_timestamp){
+		var a = new Date(UNIX_timestamp * 1000);
+		var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+		var year = a.getFullYear();
+		var month = months[a.getMonth()];
+		var date = a.getDate();
+		var hour = a.getHours();
+		var min = a.getMinutes();
+		var sec = a.getSeconds();
+		var time = date + ' ' + month + ' ' + year + ' ' + hour + ':' + min + ':' + sec ;
+		return time;
+	}
 
 };
