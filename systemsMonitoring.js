@@ -1,5 +1,6 @@
 var https = require('https'); // require node's https package: https://nodejs.org/api/https.html
 var diff = require('deep-diff'); // require deep-diff: https://www.npmjs.com/package/deep-diff
+var c = require('./smlib/common.js');
 
 exports.handler = function(event, context) { // start Lambda handler
 
