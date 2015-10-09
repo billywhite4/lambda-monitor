@@ -42,7 +42,7 @@ exports.handler = function(event, context) { // start Lambda handler
 				
 				testResultToLog["id"] 			= item.id; // unique ID assigned to the item by Sitemason in Systems Monitoring tool
 				testResultToLog["name"] 		= item.title; // name given to item in Systems Monitoring tool
-				testResultToLog["dateTime"]	= timeConverter(currentDateTime/1000);
+				testResultToLog["dateTime"]		= timeConverter(currentDateTime/1000);
 				testResultToLog["frequency"] 	= item.custom_field_1; // frequency monitor script should be run, set per item in the Systems Monitoring tool
 
 				var tags 		= item.tags_by_group; // tags set per item in the Systems Monitoring tool for group and realm
