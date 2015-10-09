@@ -9,7 +9,7 @@ exports.handler = function(event, context) { // start Lambda handler
 	var storedJSONValueParsed; // will be stored value; left-hand-side origin when comparing differences
 	var monitorResponseJSONParsed; // will be live monitor value; right-hand-side comparand when comparing differences
 	var testResultToLog = {}; // the final message to be stored in logs
-	var frequency = 0;
+	var frequency = 0; // to be used to determine when a script should run based on the setting in the item of the Systems Monitoring tool in Sitemason
 
 	var storedRequestOptions = { // set options to pass to storedRequest; points to Sitemason.com tool /support/apps/systems-monitoring (sitemason_site2)
 		hostname: 'www.sitemason.com',
