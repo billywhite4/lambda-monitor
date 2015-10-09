@@ -9,6 +9,7 @@ exports.handler = function(event, context) { // start Lambda handler
 	var storedJSONValueParsed; // will be stored value; left-hand-side origin when comparing differences
 	var monitorResponseJSONParsed; // will be live monitor value; right-hand-side comparand when comparing differences
 	var testResultToLog = {}; // the final message to be stored in logs
+	var frequency = 0;
 
 	var storedRequestOptions = { // set options to pass to storedRequest; points to Sitemason.com tool /support/apps/systems-monitoring (sitemason_site2)
 		hostname: 'www.sitemason.com',
@@ -38,12 +39,15 @@ exports.handler = function(event, context) { // start Lambda handler
 
 				var item = storedResponseJSONParsed.element.item[i]; // find items in JSON
 
-				var currentDateTime = Date.now();
+				var currentDateTime = Date.now(); // current timestamp since epoch in milliseconds (divide by 1000 to get seconds!) 
+				
+				frequency		= item.custom_field_1;
 				
 				testResultToLog["id"] 			= item.id; // unique ID assigned to the item by Sitemason in Systems Monitoring tool
 				testResultToLog["name"] 		= item.title; // name given to item in Systems Monitoring tool
 				testResultToLog["dateTime"]		= timeConverter(currentDateTime/1000);
-				testResultToLog["frequency"] 	= item.custom_field_1; // frequency monitor script should be run, set per item in the Systems Monitoring tool
+				testResultToLog["timestamp"]	= currentDateTime;
+				testResultToLog["frequency"] 	= frequency; // frequency monitor script should be run, set per item in the Systems Monitoring tool
 
 				var tags 		= item.tags_by_group; // tags set per item in the Systems Monitoring tool for group and realm
 				var value 		= item.custom_field_2; // the expected JSON response value of the monitor script, stored in Systems Monitoring item
@@ -137,14 +141,15 @@ exports.handler = function(event, context) { // start Lambda handler
 				
 					if (diffSectionName == ruleName) { // if the name of the difference and name of the rule match, build the ruleWithMessage
 					
-						ruleWithMessage["sectionName"] = ruleName; // set the sectionName to ruleWithMessage
+						ruleWithMessage["name"] = ruleName; // set the sectionName to ruleWithMessage
+						
+						if (diffPath[1]) { // if a section has a sub-value, add it to ruleWithMessage
+							ruleWithMessage['value'] = diffPath[1];
+						}
+
 						ruleWithMessage["message"] = message; // set the message to ruleWithMessage
 						ruleWithMessage["notificationType"] = notificationType; // set the notificationType to ruleWithMessage
 						ruleWithMessage["priority"] = priority; // set the priority to ruleWithMessage
-						
-						if (diffPath[1]) { // if a section has a sub-value, add it to ruleWithMessage
-							ruleWithMessage['sectionValue'] = diffPath[1];
-						}
 
 						messageToLog.push(ruleWithMessage); // add ruleWithMessage to messageToLog array
 
@@ -154,12 +159,13 @@ exports.handler = function(event, context) { // start Lambda handler
 				
 				if (match == false) { // if match = false, means the difference doesn't match a custom rule in the Systems Monitoring tool. Must build ruleWithOutMessage.
 
-					ruleWithOutMessage["sectionName"] = diffSectionName; // set the sectionName to ruleWithOutMessage
-					ruleWithOutMessage['message'] = 'Value equals "' + responseValue + '", while expected value is "' + expectedValue + '"';  // set the message to ruleWithOutMessage
+					ruleWithOutMessage["name"] = diffSectionName; // set the sectionName to ruleWithOutMessage
 
 					if (diffPath[1]) { // if a section has a sub-value, add it to ruleWithOutMessage
-						ruleWithOutMessage['sectionValue'] = diffPath[1];
+						ruleWithOutMessage['value'] = diffPath[1];
 					}
+
+					ruleWithOutMessage['message'] = 'Value equals "' + responseValue + '", while expected value is "' + expectedValue + '"';  // set the message to ruleWithOutMessage
 
 					messageToLog.push(ruleWithOutMessage); // add ruleWithOutMessage to messageToLog array
 				}
