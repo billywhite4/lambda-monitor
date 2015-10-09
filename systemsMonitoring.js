@@ -100,43 +100,68 @@ exports.handler = function(event, context) { // start Lambda handler
 			var messageToLog = new Array();
 
  			var differences = diff(storedJSONValueParsed, monitorResponseJSONParsed); // JSON object storing differences between stored vs response JSON blocks
+			differences = JSON.stringify(differences);
+			differences = JSON.parse(differences);
 //  			console.log('differences:',differences);
 
 			rulesJSONParsed = JSON.parse(rules); // parse rules defined under storedRequest to JSON object
 
-			for (var j=0; j < rulesJSONParsed.rules.length; j++) { // loop through rules
-				
-				var ruleName = rulesJSONParsed.rules[j].jsonBlock; // rule name set per item in the Systems Monitoring tool
-				var message = rulesJSONParsed.rules[j].message; // rule message set per item in the Systems Monitoring tool
-				var notificationType = rulesJSONParsed.rules[j].notificationType; // rule notification type (email, text, etc) set per item in the Systems Monitoring tool
-				var priority = rulesJSONParsed.rules[j].priority; // rule priority set per item in the Systems Monitoring tool
-				
-				for (var k=0; k < differences.length; k++) { // loop through differences
+			for (var j=0; j < differences.length; j++) { // loop through differences
 
-					var kind = differences[k].kind; // indicates the kind of change; N = newly added property; D = property was deleted; E = property was edited; A = change occurred within array
-					var expectedValue = differences[k].lhs; // the value on the left-hand-side of the comparison (undefined if kind === 'N')
-					var responseValue = differences[k].rhs; // the value on the right-hand-side of the comparison (undefined if kind === 'D')
+				var kind = differences[j].kind; // indicates the kind of change; N = newly added property; D = property was deleted; E = property was edited; A = change occurred within array
+				var expectedValue = differences[j].lhs; // the value on the left-hand-side of the comparison (undefined if kind === 'N')
+				var responseValue = differences[j].rhs; // the value on the right-hand-side of the comparison (undefined if kind === 'D')
 
-					var diffPath = differences[k].path; // the property path (from the left-hand-side root)
-// 					console.log('differences[k].path:',differences[k].path);
-					var diffSection = diffPath[0]; // name of the section that has changed
+				var diffPath = differences[j].path; // the property path (from the left-hand-side root)
+				var diffSectionName = diffPath[0]; // name of the section that has changed
 					
-					if (ruleName == diffSection) {
-						var ruleToMessage = rulesJSONParsed.rules[j];
-						if (diffPath[1]) {
-							ruleToMessage['jsonBlockValue'] = diffPath[1];
+				var match = false; // set boolean for logic to determine if a match is present
+
+				var ruleWithMessage = {}; // object to build a rule with a custom message per item in the Systems Monitoring tool
+				var ruleWithOutMessage = {}; // object to build a rule where differences are present, but doesn't match an item in the Systems Monitoring tool
+				
+				for (var k=0; k < rulesJSONParsed.rules.length; k++) { // loop through rules
+				
+					var ruleName = rulesJSONParsed.rules[k].sectionName; // rule name set per item in the Systems Monitoring tool
+					var message = rulesJSONParsed.rules[k].message + ' Value equals "' + responseValue + '", while expected value is "' + expectedValue + '"'; // rule message set per item in the Systems Monitoring tool
+					var notificationType = rulesJSONParsed.rules[k].notificationType; // rule notification type (email, text, etc) set per item in the Systems Monitoring tool
+					var priority = rulesJSONParsed.rules[k].priority; // rule priority set per item in the Systems Monitoring tool
+				
+					if (diffSectionName == ruleName) { // if the name of the difference and name of the rule match, build the ruleWithMessage
+					
+						ruleWithMessage["sectionName"] = ruleName; // set the sectionName to ruleWithMessage
+						ruleWithMessage["message"] = message; // set the message to ruleWithMessage
+						ruleWithMessage["notificationType"] = notificationType; // set the notificationType to ruleWithMessage
+						ruleWithMessage["priority"] = priority; // set the priority to ruleWithMessage
+						
+						if (diffPath[1]) { // if a section has a sub-value, add it to ruleWithMessage
+							ruleWithMessage['sectionValue'] = diffPath[1];
 						}
-// 						console.log('write message for:',diffSection + ' -> ' + diffSubSection);
-// 						console.log('with rule:',rulesJSONParsed.rules[j]);
-						messageToLog.push(ruleToMessage);
-					} else {
-// 						console.log('change detected, but no rule for:',diffSection + ' -> ' + diffSubSection);
+
+						messageToLog.push(ruleWithMessage); // add ruleWithMessage to messageToLog array
+
+						match = true; // set match to true in order to exit the loop
 					}
+				}
+				
+				if (match == false) { // if match = false, means the difference doesn't match a custom rule in the Systems Monitoring tool. Must build ruleWithOutMessage.
+
+					ruleWithOutMessage["sectionName"] = diffSectionName; // set the sectionName to ruleWithOutMessage
+					ruleWithOutMessage['message'] = 'Value equals "' + responseValue + '", while expected value is "' + expectedValue + '"';  // set the message to ruleWithOutMessage
+
+					if (diffPath[1]) { // if a section has a sub-value, add it to ruleWithOutMessage
+						ruleWithOutMessage['sectionValue'] = diffPath[1];
+					}
+
+					messageToLog.push(ruleWithOutMessage); // add ruleWithOutMessage to messageToLog array
 				}
 				
 			}
 			
-			console.log('messageToLog:',messageToLog);
+			console.log('messageToLog:',messageToLog); // print messageToLog to console
+			
+			messageToLogString = JSON.stringify(messageToLog); // stringify messageToLog
+			messageToLogParsed = JSON.parse(messageToLogString); // parse messageToLog
 
 			responseCount++; // iterates the # of responses on-end
 
