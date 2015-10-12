@@ -1,6 +1,13 @@
+var AWS = require("aws-sdk"); // require AWS's SDK
 var https = require('https'); // require node's https package: https://nodejs.org/api/https.html
 var diff = require('deep-diff'); // require deep-diff: https://www.npmjs.com/package/deep-diff
 var c = require('./smlib/common.js');
+
+AWS.config = {
+	region: 'us-west-2'
+}
+
+var dynamodb = new AWS.DynamoDB();
 
 exports.handler = function(event, context) { // start Lambda handler
 
@@ -11,6 +18,9 @@ exports.handler = function(event, context) { // start Lambda handler
 	var monitorResponseJSONParsed; // will be live monitor value; right-hand-side comparand when comparing differences
 	var testResultToLog = {}; // the final message to be stored in logs
 	var frequency = 0; // to be used to determine when a script should run based on the setting in the item of the Systems Monitoring tool in Sitemason
+	var itemName;
+	var itemId;
+	var currentDateTime;
 
 	var storedRequestOptions = { // set options to pass to storedRequest; points to Sitemason.com tool /support/apps/systems-monitoring (sitemason_site2)
 		hostname: 'www.sitemason.com',
@@ -40,12 +50,14 @@ exports.handler = function(event, context) { // start Lambda handler
 
 				var item = storedResponseJSONParsed.element.item[i]; // find items in JSON
 
-				var currentDateTime = Date.now(); // current timestamp since epoch in milliseconds (divide by 1000 to get seconds!) 
+				currentDateTime = Date.now(); // current timestamp since epoch in milliseconds (divide by 1000 to get seconds!) 
 				
 				frequency		= item.custom_field_1;
+				itemName		= item.title;
+				itemId			= item.id;
 				
-				testResultToLog["id"] 			= item.id; // unique ID assigned to the item by Sitemason in Systems Monitoring tool
-				testResultToLog["name"] 		= item.title; // name given to item in Systems Monitoring tool
+				testResultToLog["id"] 			= itemId; // unique ID assigned to the item by Sitemason in Systems Monitoring tool
+				testResultToLog["name"] 		= itemName; // name given to item in Systems Monitoring tool
 				testResultToLog["dateTime"]		= timeConverter(currentDateTime/1000);
 				testResultToLog["timestamp"]	= currentDateTime;
 				testResultToLog["frequency"] 	= frequency; // frequency monitor script should be run, set per item in the Systems Monitoring tool
@@ -175,13 +187,31 @@ exports.handler = function(event, context) { // start Lambda handler
 			
 			testResultToLog["message"] = messageToLog; // add messageToLog to testResultToLog
 			testResultToLogString = JSON.stringify(testResultToLog); // stringify testResultToLog
+			logID = currentDateTime.toString();
+			logName = itemName + '_' + itemId;
 
 			console.log(testResultToLog); // print messageToLog to console
 
 			responseCount++; // iterates the # of responses on-end
 
 			if (requestCount == responseCount) { // if requests equals responses, exit Lambda function
-				context.succeed(true);	  
+				var params = {
+					TableName: 'monitor_logs',
+					Item: {
+						id: { N: logID },
+						name: { S: logName },
+						log: { S: testResultToLogString }
+					}
+				};
+				dynamodb.putItem(params, function(err, data) {
+					if (err) {
+						console.log(err, err.stack); // an error occurred
+						context.succeed(true);
+					} else {
+						console.log(data);           // successful response
+						context.succeed(true);
+					}
+				});
 			}
 
 		});			
