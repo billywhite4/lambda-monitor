@@ -14,12 +14,10 @@ exports.handler = function(event, context) { // start Lambda handler
 	var requestCount = 0; // defines total # of requests made
 	var responseCount = 0; // defines total # of of responses back
 	var rules; // define custom rules per item set in Systems Monitoring tool in Sitemason
-	var storedJSONValueParsed; // will be stored value; left-hand-side origin when comparing differences
-	var monitorResponseJSONParsed; // will be live monitor value; right-hand-side comparand when comparing differences
+// 	var storedJSONValueParsed; // will be stored value; left-hand-side origin when comparing differences
+// 	var monitorResponseJSONParsed; // will be live monitor value; right-hand-side comparand when comparing differences
 	var testResultToLog = {}; // the final message to be stored in logs
 	var frequency = 0; // to be used to determine when a script should run based on the setting in the item of the Systems Monitoring tool in Sitemason
-	var itemName;
-	var itemId;
 	var currentDateTime;
 
 	var storedRequestOptions = { // set options to pass to storedRequest; points to Sitemason.com tool /support/apps/systems-monitoring (sitemason_site2)
@@ -46,7 +44,7 @@ exports.handler = function(event, context) { // start Lambda handler
 
 			requestCount = storedResponseJSONParsed.element.item.length; // determine # of requests for comparison with # of responses
 
-			for (var i=0; i < storedResponseJSONParsed.element.item.length; i++) { // loop through stored JSON to assign values to new vars
+			for (var i=0; i < requestCount; i++) { // loop through stored JSON to assign values to new vars
 
 				var item = storedResponseJSONParsed.element.item[i]; // find items in JSON
 
@@ -55,12 +53,15 @@ exports.handler = function(event, context) { // start Lambda handler
 				frequency		= item.custom_field_1;
 				itemName		= item.title;
 				itemId			= item.id;
+				itemId			= itemId.toString();
 				
-				testResultToLog["id"] 			= itemId; // unique ID assigned to the item by Sitemason in Systems Monitoring tool
-				testResultToLog["name"] 		= itemName; // name given to item in Systems Monitoring tool
-				testResultToLog["dateTime"]		= timeConverter(currentDateTime/1000);
-				testResultToLog["timestamp"]	= currentDateTime;
-				testResultToLog["frequency"] 	= frequency; // frequency monitor script should be run, set per item in the Systems Monitoring tool
+				testResultToLog[itemId] = {};
+				
+// 				testResultToLog[itemId]["id"] 			= itemId; // unique ID assigned to the item by Sitemason in Systems Monitoring tool
+				testResultToLog[itemId]["name"] 		= itemName; // name given to item in Systems Monitoring tool
+				testResultToLog[itemId]["dateTime"]		= timeConverter(currentDateTime/1000);
+				testResultToLog[itemId]["timestamp"]	= currentDateTime;
+				testResultToLog[itemId]["frequency"] 	= frequency; // frequency monitor script should be run, set per item in the Systems Monitoring tool
 
 				var tags 		= item.tags_by_group; // tags set per item in the Systems Monitoring tool for group and realm
 				var value 		= item.custom_field_2; // the expected JSON response value of the monitor script, stored in Systems Monitoring item
@@ -68,19 +69,19 @@ exports.handler = function(event, context) { // start Lambda handler
 				var path 		= item.custom_field_4; // path to the location of the monitor script, set per item in the Systems Monitoring tool
 				rules 			= item.custom_field_json; // rules setting the notification type, limits, priority, and message to detrmine the alert
 
-				for (i=0; i < tags.group.length; i++) { // loop through the tags to set the Group and Realm per item in the Systems Monitoring tool
-					if (tags.group[i].id == '899') { // Group
-						var groupTag = tags.group[i].tags.tag[0].name;
-					} else if (tags.group[i].id == '898') { // Realm
-						var realmTag = tags.group[i].tags.tag[0].name;
-					}
-				}
-
-				testResultToLog["group"] = groupTag; // assign group tag to testResultToLog
-				testResultToLog["realm"] = realmTag; // assign realm tag to testResultToLog
-				testResultToLog["url"] = 'https://'+hostname+path; // assign url to testResultToLog
+// 				for (i=0; i < tags.group.length; i++) { // loop through the tags to set the Group and Realm per item in the Systems Monitoring tool
+// 					if (tags.group[i].id == '899') { // Group
+// 						var groupTag = tags.group[i].tags.tag[0].name;
+// 					} else if (tags.group[i].id == '898') { // Realm
+// 						var realmTag = tags.group[i].tags.tag[0].name;
+// 					}
+// 				}
+// 
+// 				testResultToLog[itemId]["group"] = groupTag; // assign group tag to testResultToLog
+// 				testResultToLog[itemId]["realm"] = realmTag; // assign realm tag to testResultToLog
+				testResultToLog[itemId]["url"] = 'https://'+hostname+path; // assign url to testResultToLog
 			
-				storedJSONValueParsed = JSON.parse(value); // convert response data to parsed JSON object
+				var storedJSONValueParsed = JSON.parse(value); // convert response data to parsed JSON object
 
 				var monitorRequestOptions = { // set options to pass to monitorRequest from the item stored in the Systems Monitoring tool
 				  hostname: hostname,
@@ -89,16 +90,16 @@ exports.handler = function(event, context) { // start Lambda handler
 				  method: 'GET'
 				};
 
-				var monitorRequest = https.request(monitorRequestOptions, monitorRequestFunction); // request to the monitoring script
+				var startTime = Date.now();
 
-				monitorRequest.on('error', function(e) { // error handling for monitorRequest
-					console.error(e);
-				});
-
-				monitorRequest.end(); // end monitorRequest
+				var data = {
+					itemId: itemId,
+					storedJSONValueParsed: storedJSONValueParsed,
+					startTime: startTime
+				};
+				
+				c.httpsRequest(monitorRequestOptions, monitorRequestFunction, data);
 			}
-
-            
         });
     });
 
@@ -109,112 +110,127 @@ exports.handler = function(event, context) { // start Lambda handler
     storedRequest.end(); // end storedRequest
 
 
-	var monitorRequestFunction = function(monitorResponse) { // function to be passed to monitorRequest
+	var monitorRequestFunction = function(monitorResponse, output, data) { // function to be passed to monitorRequest
+		
+		var localItemId = data.itemId;
+		localItemId = localItemId.toString();
+		var localStoredJSONValueParsed = data.storedJSONValueParsed;
+		var localStartTime = data.startTime;
 
 		var monitorResponseJSON = ''; // will hold the response body from monitorRequest
 
-		monitorResponse.setEncoding('utf8'); // set character encoding to utf-8
+		monitorResponseJSONParsed = JSON.parse(output); // convert response data to parsed JSON object
 
-		monitorResponse.on('data', function(monitorResponseChunk) { // as data arrives, do stuff
-			monitorResponseJSON += monitorResponseChunk; // concatenate response chunks from monitorRequest to build data object
-		});
+		var messageToLog = {};
 
-		monitorResponse.on('end', function() { // when response is complete, do stuff
+		var differences = diff(localStoredJSONValueParsed, monitorResponseJSONParsed); // JSON object storing differences between stored vs response JSON blocks
+		differences = JSON.stringify(differences);
+		differences = JSON.parse(differences);
 
-			monitorResponseJSONParsed = JSON.parse(monitorResponseJSON); // convert response data to parsed JSON object
+		rulesJSONParsed = JSON.parse(rules); // parse rules defined under storedRequest to JSON object
 
-			var messageToLog = new Array();
+		for (var j=0; j < differences.length; j++) { // loop through differences
 
- 			var differences = diff(storedJSONValueParsed, monitorResponseJSONParsed); // JSON object storing differences between stored vs response JSON blocks
-			differences = JSON.stringify(differences);
-			differences = JSON.parse(differences);
+			var kind = differences[j].kind; // indicates the kind of change; N = newly added property; D = property was deleted; E = property was edited; A = change occurred within array
+			var expectedValue = differences[j].lhs; // the value on the left-hand-side of the comparison (undefined if kind === 'N')
+			var responseValue = differences[j].rhs; // the value on the right-hand-side of the comparison (undefined if kind === 'D')
 
-			rulesJSONParsed = JSON.parse(rules); // parse rules defined under storedRequest to JSON object
-
-			for (var j=0; j < differences.length; j++) { // loop through differences
-
-				var kind = differences[j].kind; // indicates the kind of change; N = newly added property; D = property was deleted; E = property was edited; A = change occurred within array
-				var expectedValue = differences[j].lhs; // the value on the left-hand-side of the comparison (undefined if kind === 'N')
-				var responseValue = differences[j].rhs; // the value on the right-hand-side of the comparison (undefined if kind === 'D')
-
-				var diffPath = differences[j].path; // the property path (from the left-hand-side root)
-				var diffSectionName = diffPath[0]; // name of the section that has changed
-					
-				var match = false; // set boolean for logic to determine if a match is present
-
-				var ruleWithMessage = {}; // object to build a rule with a custom message per item in the Systems Monitoring tool
-				var ruleWithOutMessage = {}; // object to build a rule where differences are present, but doesn't match an item in the Systems Monitoring tool
+			var diffPath = differences[j].path; // the property path (from the left-hand-side root)
+			var diffSectionName = diffPath[0]; // name of the section that has changed
 				
-				for (var k=0; k < rulesJSONParsed.rules.length; k++) { // loop through rules
-				
-					var ruleName = rulesJSONParsed.rules[k].sectionName; // rule name set per item in the Systems Monitoring tool
-					var message = rulesJSONParsed.rules[k].message + ' Value equals "' + responseValue + '", while expected value is "' + expectedValue + '"'; // rule message set per item in the Systems Monitoring tool
-					var notificationType = rulesJSONParsed.rules[k].notificationType; // rule notification type (email, text, etc) set per item in the Systems Monitoring tool
-					var priority = rulesJSONParsed.rules[k].priority; // rule priority set per item in the Systems Monitoring tool
-				
-					if (diffSectionName == ruleName) { // if the name of the difference and name of the rule match, build the ruleWithMessage
-					
-						ruleWithMessage["name"] = ruleName; // set the sectionName to ruleWithMessage
-						
-						if (diffPath[1]) { // if a section has a sub-value, add it to ruleWithMessage
-							ruleWithMessage['value'] = diffPath[1];
-						}
+			var match = false; // set boolean for logic to determine if a match is present
 
-						ruleWithMessage["message"] = message; // set the message to ruleWithMessage
-						ruleWithMessage["notificationType"] = notificationType; // set the notificationType to ruleWithMessage
-						ruleWithMessage["priority"] = priority; // set the priority to ruleWithMessage
-
-						messageToLog.push(ruleWithMessage); // add ruleWithMessage to messageToLog array
-
-						match = true; // set match to true in order to exit the loop
-					}
-				}
-				
-				if (match == false) { // if match = false, means the difference doesn't match a custom rule in the Systems Monitoring tool. Must build ruleWithOutMessage.
-
-					ruleWithOutMessage["name"] = diffSectionName; // set the sectionName to ruleWithOutMessage
-
-					if (diffPath[1]) { // if a section has a sub-value, add it to ruleWithOutMessage
-						ruleWithOutMessage['value'] = diffPath[1];
-					}
-
-					ruleWithOutMessage['message'] = 'Value equals "' + responseValue + '", while expected value is "' + expectedValue + '"';  // set the message to ruleWithOutMessage
-
-					messageToLog.push(ruleWithOutMessage); // add ruleWithOutMessage to messageToLog array
-				}
-				
+			var ruleWithMessage = {}; // object to build a rule with a custom message per item in the Systems Monitoring tool
+			var ruleWithOutMessage = {}; // object to build a rule where differences are present, but doesn't match an item in the Systems Monitoring tool
+			
+			if (diffPath[1]) {
+				var sectionForMessage = diffPath[1];
+			} else {
+				var sectionForMessage = diffSectionName;
 			}
 			
-			testResultToLog["message"] = messageToLog; // add messageToLog to testResultToLog
-			testResultToLogString = JSON.stringify(testResultToLog); // stringify testResultToLog
-			logID = currentDateTime.toString();
-			logName = itemName + '_' + itemId;
+			for (var k=0; k < rulesJSONParsed.rules.length; k++) { // loop through rules
+				
+				var ruleName = rulesJSONParsed.rules[k].sectionName; // rule name set per item in the Systems Monitoring tool
+				var message = rulesJSONParsed.rules[k].message + ' ' + sectionForMessage + ' equals "' + responseValue + '", while expected value is "' + expectedValue + '"'; // rule message set per item in the Systems Monitoring tool
+				var notificationType = rulesJSONParsed.rules[k].notificationType; // rule notification type (email, text, etc) set per item in the Systems Monitoring tool
+				var priority = rulesJSONParsed.rules[k].priority; // rule priority set per item in the Systems Monitoring tool
+			
+				if (diffSectionName == ruleName) { // if the name of the difference and name of the rule match, build the ruleWithMessage
+				
+					ruleWithMessage["name"] = ruleName; // set the sectionName to ruleWithMessage
+					
+					if (diffPath[1]) { // if a section has a sub-value, add it to ruleWithMessage
+						ruleWithMessage['value'] = diffPath[1];
+					}
 
+					ruleWithMessage["message"] = message; // set the message to ruleWithMessage
+					ruleWithMessage["notificationType"] = notificationType; // set the notificationType to ruleWithMessage
+					ruleWithMessage["priority"] = priority; // set the priority to ruleWithMessage
+
+					messageToLog[j] = ruleWithMessage; // add ruleWithMessage to messageToLog array
+					
+// 					ruleWithMessageType = c.type(ruleWithMessage);
+// 					console.log('ruleWithMessage:',ruleWithMessage);
+
+					match = true; // set match to true in order to exit the loop
+				}
+			}
+			
+			if (match == false) { // if match = false, means the difference doesn't match a custom rule in the Systems Monitoring tool. Must build ruleWithOutMessage.
+
+				ruleWithOutMessage["name"] = diffSectionName; // set the sectionName to ruleWithOutMessage
+
+				if (diffPath[1]) { // if a section has a sub-value, add it to ruleWithOutMessage
+					ruleWithOutMessage['value'] = diffPath[1];
+				}
+
+				ruleWithOutMessage['message'] = sectionForMessage + ' equals "' + responseValue + '", while expected value is "' + expectedValue + '"';  // set the message to ruleWithOutMessage
+
+				messageToLog[j] = ruleWithOutMessage; // add ruleWithOutMessage to messageToLog array
+			}
+			
+// 			messageToLogType = c.type(messageToLog);
+// 			console.log('messageToLogType',messageToLogType);
+		}
+		
+		testResultToLog[localItemId]["messages"] = messageToLog; // add messageToLog to testResultToLog
+		logID = currentDateTime.toString();
+		
+		var endTime = Date.now();
+		
+		var responseTime = endTime - localStartTime;
+		
+		testResultToLog[localItemId]["responseTimeMS"] = responseTime;
+
+		responseCount++; // iterates the # of responses on-end
+
+		if (requestCount == responseCount) { // if requests equals responses, exit Lambda function
+			testResultToLogString = JSON.stringify(testResultToLog); // stringify testResultToLog
+			testResultToLogParse = JSON.parse(testResultToLogString); // stringify testResultToLog
 			console.log(testResultToLog); // print messageToLog to console
 
-			responseCount++; // iterates the # of responses on-end
 
-			if (requestCount == responseCount) { // if requests equals responses, exit Lambda function
-				var params = {
-					TableName: 'monitor_logs',
-					Item: {
-						id: { N: logID },
-						name: { S: logName },
-						log: { S: testResultToLogString }
-					}
-				};
-				dynamodb.putItem(params, function(err, data) {
-					if (err) {
-						console.log(err, err.stack); // an error occurred
-						context.succeed(true);
-					} else {
-						console.log(data);           // successful response
-						context.succeed(true);
-					}
-				});
-			}
+			var rightnow = timeConverter(currentDateTime/1000);
+			var params = {
+				TableName: 'monitor_logs',
+				Item: {
+					id: { N: logID },
+					name: { S: rightnow },
+					log: { S: testResultToLogString }
+				}
+			};
+			dynamodb.putItem(params, function(err, data) {
+				if (err) {
+					console.log(err, err.stack); // an error occurred
+					context.succeed(true);
+				} else {
+					console.log(data);           // successful response
+					context.succeed(true);
+				}
+			});
+		}
 
-		});			
 	};
 
 	function timeConverter(UNIX_timestamp){
