@@ -64,9 +64,9 @@ exports.handler = function(event, context) { // start Lambda handler
 				rules 			= item.custom_field_json; // rules setting the notification type, limits, priority, and message to detrmine the alert
 
 				for (j=0; j < tags.group.length; j++) { // loop through the tags to set the Group and Realm per item in the Systems Monitoring tool
-					if (tags.group[j].id == '899') { // Group
+					if (tags.group[j].id === '899') { // Group
 						var groupTag = tags.group[j].tags.tag[0].name;
-					} else if (tags.group[j].id == '898') { // Realm
+					} else if (tags.group[j].id === '898') { // Realm
 						var realmTag = tags.group[j].tags.tag[0].name;
 					}
 				}
@@ -127,8 +127,8 @@ exports.handler = function(event, context) { // start Lambda handler
 			for (var j=0; j < differences.length; j++) { // loop through differences
 
 				var kind = differences[j].kind; // indicates the kind of change; N = newly added property; D = property was deleted; E = property was edited; A = change occurred within array
-				var expectedValue = differences[j].lhs; // the value on the left-hand-side of the comparison (undefined if kind === 'N')
-				var responseValue = differences[j].rhs; // the value on the right-hand-side of the comparison (undefined if kind === 'D')
+				var expectedValue = differences[j].lhs; // the value on the left-hand-side of the comparison (undefined if kind ==== 'N')
+				var responseValue = differences[j].rhs; // the value on the right-hand-side of the comparison (undefined if kind ==== 'D')
 
 				var diffPath = differences[j].path; // the property path (from the left-hand-side root)
 				var diffSectionName = diffPath[0]; // name of the section that has changed
@@ -151,7 +151,7 @@ exports.handler = function(event, context) { // start Lambda handler
 					var notificationType = rulesJSONParsed.rules[k].notificationType; // rule notification type (email, text, etc) set per item in the Systems Monitoring tool
 					var priority = rulesJSONParsed.rules[k].priority; // rule priority set per item in the Systems Monitoring tool
 			
-					if (diffSectionName == ruleName) { // if the name of the difference and name of the rule match, build the ruleWithMessage
+					if (diffSectionName === ruleName) { // if the name of the difference and name of the rule match, build the ruleWithMessage
 				
 						ruleWithMessage["name"] = ruleName; // set the sectionName to ruleWithMessage
 					
@@ -169,7 +169,7 @@ exports.handler = function(event, context) { // start Lambda handler
 					}
 				}
 			
-				if (match == false) { // if match = false, means the difference doesn't match a custom rule in the Systems Monitoring tool. Must build ruleWithOutMessage.
+				if (match === false) { // if match = false, means the difference doesn't match a custom rule in the Systems Monitoring tool. Must build ruleWithOutMessage.
 
 					ruleWithOutMessage["name"] = diffSectionName; // set the sectionName to ruleWithOutMessage
 
@@ -198,7 +198,7 @@ exports.handler = function(event, context) { // start Lambda handler
 
 		logID = currentDateTime.toString(); // current time in milliseconds since epoch as id to store in DynamoDB table
 
-		if (requestCount == responseCount) { // if requests equals responses, exit Lambda function
+		if (requestCount === responseCount) { // if requests equals responses, exit Lambda function
 
 			testResultToLogString = JSON.stringify(testResultToLog); // stringify testResultToLog
 			testResultToLogParse = JSON.parse(testResultToLogString); // stringify testResultToLog
