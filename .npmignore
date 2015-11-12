@@ -1,5 +1,8 @@
+.npmignore
+dist
 event.json
 Gruntfile.js
-dist
+node_modules
+smlib
+smlib_20151009
 *.iml
-.npmignore
