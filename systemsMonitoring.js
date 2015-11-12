@@ -2,6 +2,7 @@ var AWS = require("aws-sdk"); // require AWS's SDK
 var https = require('https'); // require node's https package: https://nodejs.org/api/https.html
 var diff = require('deep-diff'); // require deep-diff: https://www.npmjs.com/package/deep-diff
 var c = require('./smlib/common.js'); // require Tim Moses' common.js helper functions
+var pv = require('private.js'); // includes private values excluded from public GitHub repo
 
 AWS.config = { region: 'us-west-2' } // set AWS region for DynamoDB
 var dynamodb = new AWS.DynamoDB(); // instantiate DynamoDB via AWSK SDK
