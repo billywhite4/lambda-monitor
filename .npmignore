@@ -3,6 +3,7 @@ dist
 event.json
 Gruntfile.js
 node_modules/
+private.js
 smlib/
 smlib_20151009/
 *.iml

@@ -1,8 +1,7 @@
 var AWS = require("aws-sdk"); // require AWS's SDK
 var https = require('https'); // require node's https package: https://nodejs.org/api/https.html
 var diff = require('deep-diff'); // require deep-diff: https://www.npmjs.com/package/deep-diff
-var c = require('./smlib/common.js'); // require Tim Moses' common.js helper functions
-var pv = require('private.js'); // includes private values excluded from public GitHub repo
+var pv = require('./private.js'); // includes private values excluded from public GitHub repo
 
 AWS.config = { region: 'us-west-2' } // set AWS region for DynamoDB
 var dynamodb = new AWS.DynamoDB(); // instantiate DynamoDB via AWSK SDK
@@ -16,6 +15,7 @@ exports.handler = function(event, context) { // start Lambda handler
 	var frequency = 0; // to be used to determine when a script should run based on the setting in the item of the Systems Monitoring tool in Sitemason
 	var currentDateTime; // empty var to be set to current dateTime
 
+	var storedRequestOptions = pv.storedRequestOptions; // set options to pass to storedRequest. Expects hostname, port, path, and method
 
 	var storedRequest = https.request(storedRequestOptions, function(storedResponse) { // request to the Sitemason tool
 
@@ -87,7 +87,7 @@ exports.handler = function(event, context) { // start Lambda handler
 					startTime: startTime
 				};
 				
-				c.httpsRequest(monitorRequestOptions, monitorRequestFunction, data); // call to individual monitor script using common's c.httpsRequest
+				httpsRequest(monitorRequestOptions, monitorRequestFunction, data); // call to individual monitor script using common's c.httpsRequest
 			}
         });
     });
@@ -223,6 +223,24 @@ exports.handler = function(event, context) { // start Lambda handler
 		}
 
 	};
+
+	// function that rewrites Node.js' https.request() function to include optional data, written by https://github.com/timmoses
+	function httpsRequest(options, callback, data) {
+		function httpsReceiver(_res, _callback, _data) {
+			var output = '';
+			_res.on('data', function(d) {
+				output += d;
+			});
+			_res.on('end', function(d) {
+				_callback.call({}, _res, output, _data);
+			});
+		}
+	
+		var req = https.request(options, function(res) {
+			httpsReceiver(res, callback, data);
+		});
+		req.end();
+	}
 
 	// function that converts unix timestamp into human readable format, from: http://stackoverflow.com/questions/847185/convert-a-unix-timestamp-to-time-in-javascript
 	function timeConverter(UNIX_timestamp){
