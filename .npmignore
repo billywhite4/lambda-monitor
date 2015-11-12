@@ -2,7 +2,7 @@
 dist
 event.json
 Gruntfile.js
-node_modules
-smlib
-smlib_20151009
+node_modules/
+smlib/
+smlib_20151009/
 *.iml
