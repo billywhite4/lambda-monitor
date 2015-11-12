@@ -16,12 +16,6 @@ exports.handler = function(event, context) { // start Lambda handler
 	var frequency = 0; // to be used to determine when a script should run based on the setting in the item of the Systems Monitoring tool in Sitemason
 	var currentDateTime; // empty var to be set to current dateTime
 
-	var storedRequestOptions = { // set options to pass to storedRequest; points to Sitemason.com tool /support/apps/systems-monitoring (sitemason_site2)
-		hostname: 'www.sitemason.com',
-		port: 443,
-		path: '/site/i34wXC/systems-monitoring?tooljson',
-		method: 'GET'
-	};
 
 	var storedRequest = https.request(storedRequestOptions, function(storedResponse) { // request to the Sitemason tool
 
