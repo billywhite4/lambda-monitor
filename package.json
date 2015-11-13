@@ -13,7 +13,8 @@
 		"npm": "^2.8.3"
 	},
 	"repository": {
-		"type": "git"
+		"type": "git",
+		"url": "https://github.com/billywhite4/lambda-monitor"
 	},
 	"scripts": {
 		"test": ""
